@@ -10,17 +10,16 @@ def get_sha256(word):
     encoded = base64.b64encode(hash)
     return str(encoded,'ascii')
 
-client_code = """
-import hashlib, base64, socket
 def hash_list(channel,target_hash,dictionary):
+    import hashlib,base64
+    hashes = []
     for i in range(len(dictionary)):
-        word = dictionary[i]
+        word = dictionary[i].rstrip()
         hash = hashlib.sha256(word.encode('utf-8')).digest()
         encoded = base64.b64encode(hash)
-        final_hash = str(encoded, 'ascii')
-        if final_hash == target_hash:
-            channel.send(dictionary[i])
-"""
+        final_hash = str(encoded)
+        hashes.append([word,final_hash])
+    channel.send(hashes)
 
 def master(gws,t,dictionary):
     #split dictionary
@@ -47,13 +46,12 @@ def main():
     gws = create_group('slacr.hosts')
 
     result = master(gws, input_hash, lines)
+    for word, hash in result:
+        if hash == input_hash:
+            print("Found hash: " + hash + " word: " + word)
+            return
+    print("No hashes found. Look for yourself:")
     print(result)
-
-    # print(lines)
-    # for line in lines:
-    #     if string == input_hash:
-    #         print("Calculated hash: " + line +  " == " + string)
-
 
 if __name__ == '__main__':
     main() 
