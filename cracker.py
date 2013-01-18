@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-import hashlib,sys,getopt,io,base64
+import hashlib,sys,getopt,io,base64,execnet
+
+def get_sha256(word):
+    word = word.rstrip()
+    hash = hashlib.sha256(word.encode('utf-8')).digest()
+    encoded = base64.b64encode(hash)
+    return str(encoded,'ascii')
 
 def main():
     mode = sys.argv[1] #default sha256
@@ -9,10 +15,7 @@ def main():
     lines = f.readlines()
     print(lines)
     for line in lines:
-        line = line.rstrip()
-        hash = hashlib.sha256(line.encode('utf-8')).digest()
-        encoded = base64.b64encode(hash)
-        string = str(encoded,'ascii')
+        string = get_sha256(line)
         if string == input_hash:
             print("Calculated hash: " + line +  " == " + string)
 
