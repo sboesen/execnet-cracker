@@ -11,22 +11,29 @@ def get_sha256(word):
     return str(encoded,'ascii')
 
 def hash_list(channel,target_hash,dictionary, hash_type):
-    import hashlib,base64
+    import hashlib,base64,os
     hashes = []
     for i in range(len(dictionary)):
+
         word = dictionary[i].rstrip()
 
         if hash_type == 'ntlm':
             hash = hashlib.new('md4', word.encode('utf-16le','ignore')).hexdigest()
-            hashes.append([word,"$NT$"+ hash])
+            if "$NT$"+hash == target_hash:
+                channel.send([word, hash])
 
         elif hash_type == 'sha256':
             hash = hashlib.sha256(word.encode('utf-8')).digest()
             encoded = base64.b64encode(hash)
             final_hash = str(encoded)
-            hashes.append([word,final_hash])
+            if final_hash == target_hash:
+                channel.send([word, final_hash])
 
-    channel.send(hashes)
+        if i != 0:
+            if i % 30 == 0:
+                # send progress
+                hostname = os.uname()[1]
+                channel.send(["progress",hostname, 30])
 
 def master(gws,t,dictionary, mode):
     #split dictionary
@@ -35,8 +42,29 @@ def master(gws,t,dictionary, mode):
     channels,result = [],[]
     for node, data in node_data:
         channels.append(node.remote_exec(hash_list, target_hash = t, dictionary = data, hash_type = mode))
-    for c in channels: result += c.receive()
-    return result
+    mch = execnet.MultiChannel(channels)
+    queue = mch.make_receive_queue(endmarker=42)
+    done = 0
+    progress = 0
+    ended = 0
+    while done == 0:
+        result = queue.get()
+        if result[1] == 42:
+            ended = ended + 1
+            if ended == len(gws):
+                execnet.default_group.terminate()
+                return [42,42]
+
+        elif len(result[1]) == 3:
+            progress = result[1][2] + progress
+            print("Progress: " + str(progress) + " out of " + str(len(dictionary)) + "\r", end="")
+
+
+        elif len(result[1]) == 2:
+            # we got a hash back
+            # print("len result is 2, result: " + str(result))
+            execnet.default_group.terminate()
+            return result
 
 def create_group(hostfile):
     f = open('slacr.hosts')
@@ -52,14 +80,11 @@ def main():
     
     gws = create_group('slacr.hosts')
 
-    result = master(gws, input_hash, lines, mode)
-    for word, hash in result:
-        if hash == input_hash:
-            print("Found hash: " + hash + " word: " + word)
-            return
-    print("Got input: " + input_hash)
-    print("No hashes found. Look for yourself:")
+    channel, result = master(gws, input_hash, lines, mode)
+    print("\n")
     print(result)
+    #if result:
+        #print("Found hash: " + hash + " word: " + word)
 
 if __name__ == '__main__':
     main() 
