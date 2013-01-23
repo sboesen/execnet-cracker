@@ -81,7 +81,7 @@ def main():
     gws = create_group('slacr.hosts')
 
     channel, result = master(gws, input_hash, lines, mode)
-    print("\n")
+    print("Progress: " + str(len(lines)) + " out of " + str(len(lines)))
     print(result)
     #if result:
         #print("Found hash: " + hash + " word: " + word)
